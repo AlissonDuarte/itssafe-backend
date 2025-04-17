@@ -1,0 +1,12 @@
+Cirar mecanismo de validação de email
+Não permitir acesso sem validar email
+- cliente cadastra
+- valida email
+- realiza login
+- não é necessário alteração kotlin
+
+Criar mecanismo de recuperação de senha
+- cliente recupera
+- envia email
+- valida email
+- realiza login
