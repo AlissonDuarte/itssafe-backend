@@ -1,7 +1,16 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = "postgresql://myuser:mypassword@db:5432/mydb"
+db_mode = os.getenv("DB_MODE")
+db_username = os.getenv("DB_USERNAME")
+db_password = os.getenv("DB_PASSWORD")
+db_database = os.getenv("DB_DATABASE")
+
+if db_mode == "prd":
+    DATABASE_URL = f"postgresql://{db_username}:{db_password}@db:5432/{db_database}"
+else:
+    DATABASE_URL = "postgresql://itssafe:mypassword@db:5432/mydb"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
