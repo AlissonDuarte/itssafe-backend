@@ -6,9 +6,11 @@ db_mode = os.getenv("DB_MODE")
 db_username = os.getenv("DB_USERNAME")
 db_password = os.getenv("DB_PASSWORD")
 db_database = os.getenv("DB_DATABASE")
+rds_endpoint = os.getenv("RDS_ENDPOINT")
+rds_port = os.getenv("RDS_PORT")
 
 if db_mode == "prd":
-    DATABASE_URL = f"postgresql://{db_username}:{db_password}@db:5432/{db_database}"
+    DATABASE_URL = f"postgresql://{db_username}:{db_password}@{rds_endpoint}:{rds_port}/{db_database}"
 else:
     DATABASE_URL = "postgresql://itssafe:mypassword@db:5432/mydb"
 
