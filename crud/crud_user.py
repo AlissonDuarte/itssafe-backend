@@ -17,7 +17,7 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 def create_user(db: Session, user: schemas.UserCreate):
     #usar dados salvos no insomnia para testes de criacao e validacao
     logger.info("{} {} trying to register in application".format( TAG, user.username))
-    validate_password(user.password)
+    validate_password(user.password, user.confirm_password)
     db_user = models.User(
         username=user.username,
         name=user.name,
