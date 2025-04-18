@@ -3,11 +3,13 @@ import pika
 import json
 import asyncio
 
+from dotenv import load_dotenv
 from services.alerts.firebase import FirebaseAlertService
 
 
 class Consumer:
     def __init__(self, queue_name):
+        load_dotenv()
         credentials = pika.PlainCredentials(
             os.getenv('AMQP_USER', 'admin'), 
             os.getenv('AMQP_PASSWORD', 'admin')
