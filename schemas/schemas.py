@@ -21,7 +21,7 @@ class UserResponse(UserBase):
     uuid: UUID
     username: str
     contributions: int
-    remaining: int
+    remaining:  Optional[int] = 0
     created_at: datetime
     updated_at: Optional[datetime]
     deleted_at: Optional[datetime]
