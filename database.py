@@ -14,7 +14,7 @@ rds_port = os.getenv("RDS_PORT")
 if db_mode == "prd":
     DATABASE_URL = f"postgresql://{db_username}:{db_password}@{rds_endpoint}:{rds_port}/{db_database}"
 else:
-    DATABASE_URL = "postgresql://itssafe:mypassword@db:5432/mydb"
+    DATABASE_URL = "postgresql://myuser:mypassword@localhost:5432/mydb"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

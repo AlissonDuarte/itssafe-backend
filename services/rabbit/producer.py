@@ -2,9 +2,11 @@ import os
 import pika
 import json
 
+from dotenv import load_dotenv
 
 class Producer:
     def __init__(self, queue_name):
+        load_dotenv()
         self.queue_name = queue_name
         credentials = pika.PlainCredentials(
             os.getenv('AMQP_USER', 'admin'), 

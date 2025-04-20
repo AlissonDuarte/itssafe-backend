@@ -19,6 +19,7 @@ class Consumer:
         self.queue_name = queue_name
         self.amqp_host = os.getenv('AMQP_HOST', 'localhost')
         self.amqp_port = int(os.getenv('AMQP_PORT', 5672))
+
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(
                 host=self.amqp_host,
