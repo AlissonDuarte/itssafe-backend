@@ -12,7 +12,7 @@ consumer = Consumer("alerts")
 async def startup_event(app: FastAPI):
     import threading
     producer.send_message({"message": "Hello!"})
-    thread = threading.Thread(target=consumer.consume, daemon=True)
+    thread = threading.Thread(target=consumer.consume, daemon=True, name="RabbitConsumer")
     thread.start()
     yield
     producer.close_connection()
