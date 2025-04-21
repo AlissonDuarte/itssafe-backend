@@ -1,6 +1,7 @@
 import os
 import pika
 import json
+import time
 
 from dotenv import load_dotenv
 
@@ -10,7 +11,16 @@ class Producer:
         self.queue_name = queue_name
         amqp_url = os.getenv('RABBITMQ_URL', 'amqp://admin:admin@localhost:5672/')
         params = pika.URLParameters(amqp_url)
-        self.connection = pika.BlockingConnection(params)
+        for attempt in range(10):
+            try:
+                self.connection = pika.BlockingConnection(params)
+                break
+            except pika.exceptions.AMQPConnectionError:
+                print(f"Tentativa {attempt + 1}: RabbitMQ ainda não está pronto. Tentando novamente em 3s...")
+                time.sleep(3)
+        else:
+            raise Exception("Não foi possível conectar ao RabbitMQ após várias tentativas.")
+
 
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue=self.queue_name, durable=True)
