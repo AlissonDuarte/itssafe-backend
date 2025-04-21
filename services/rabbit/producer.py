@@ -8,22 +8,10 @@ class Producer:
     def __init__(self, queue_name):
         load_dotenv()
         self.queue_name = queue_name
-        credentials = pika.PlainCredentials(
-            os.getenv('AMQP_USER', 'admin'), 
-            os.getenv('AMQP_PASSWORD', 'admin')
-        )
-        print("credenciais", os.getenv('AMQP_USER', 'admin'), os.getenv('AMQP_PASSWORD', 'admin'))
-        self.amqp_host = os.getenv('AMQP_HOST', 'rabbitmq')
-        self.amqp_port = os.getenv('AMQP_PORT', 5672)
-        print("address", self.amqp_host, self.amqp_port)
-        self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(
-                host=self.amqp_host,
-                port=self.amqp_port,
-                credentials=credentials
-            )
-        )
-        print("address", self.amqp_host, self.amqp_port)
+        amqp_url = os.getenv('RABBITMQ_URL', 'amqp://admin:admin@localhost:5672/')
+        params = pika.URLParameters(amqp_url)
+        self.connection = pika.BlockingConnection(params)
+
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue=self.queue_name, durable=True)
 

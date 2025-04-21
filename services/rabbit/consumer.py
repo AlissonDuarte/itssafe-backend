@@ -10,23 +10,12 @@ from services.alerts.firebase import FirebaseAlertService
 class Consumer:
     def __init__(self, queue_name):
         load_dotenv()
-        credentials = pika.PlainCredentials(
-            os.getenv('AMQP_USER', 'admin'), 
-            os.getenv('AMQP_PASSWORD', 'admin')
-        )
-
-        self.fcm = FirebaseAlertService()
         self.queue_name = queue_name
-        self.amqp_host = os.getenv('AMQP_HOST', 'localhost')
-        self.amqp_port = int(os.getenv('AMQP_PORT', 5672))
+        self.fcm = FirebaseAlertService()
+        amqp_url = os.getenv('RABBITMQ_URL', 'amqp://admin:admin@localhost:5672/')
+        params = pika.URLParameters(amqp_url)
+        self.connection = pika.BlockingConnection(params)
 
-        self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(
-                host=self.amqp_host,
-                port=self.amqp_port,
-                credentials=credentials
-            )
-        )
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue=self.queue_name, durable=True)
         self.mode_map = {
