@@ -15,6 +15,7 @@ class Producer:
         print("credenciais", os.getenv('AMQP_USER', 'admin'), os.getenv('AMQP_PASSWORD', 'admin'))
         self.amqp_host = os.getenv('AMQP_HOST', 'rabbitmq')
         self.amqp_port = os.getenv('AMQP_PORT', 5672)
+        print("address", self.amqp_host, self.amqp_port)
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(
                 host=self.amqp_host,
