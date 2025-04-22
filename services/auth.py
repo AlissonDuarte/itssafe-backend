@@ -5,7 +5,7 @@ from datetime import timedelta, datetime, timezone
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
-load_dotenv(".env")
+load_dotenv()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 SECRET_KEY = os.getenv("SECRET_SERVER_KEY")
@@ -14,6 +14,7 @@ ALGORITHM = os.getenv("ALGORITHM")
 def create_access_token(user:dict, expires_delta: timedelta | None = None) ->str:
     to_encode = user.copy()
     to_encode['uuid'] = str(user['uuid'])
+    to_encode['email'] = str(user['email'])
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=7))
     to_encode.update({"exp":expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

@@ -10,7 +10,7 @@ class UserBase(BaseModel):
     gender: Literal['male', 'female', 'other']
     info: Optional[dict[str, Any]] = {"data":None}
     phone_identifier: str
-    subscription_status: str = "active"
+    subscription_status: str = "inactive"
 
 
 class UserCreate(UserBase):
