@@ -25,3 +25,4 @@ app.include_router(user.router, prefix="/api")
 app.include_router(occurrence.router, prefix="/api")
 app.include_router(zones.router, prefix="/api")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+

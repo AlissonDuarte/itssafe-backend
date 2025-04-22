@@ -1,5 +1,8 @@
+from services.singleton.log import logger
 from geoalchemy2.elements import WKTElement
 
+
+TAG = "UTILS -> "
 def wkt_to_coordinates(wkt_element: WKTElement) -> list:
     """Convert WKTElement to a list of coordinates."""
     if wkt_element is None:
@@ -34,6 +37,7 @@ def risk_calculator(occurrences) -> str:
 
 
 def email_confirmation(dst:str, token:str, username:str) -> dict:
+    logger.info("{} Mounting Email Verify Template to user {} with email {}".format(TAG, username, dst))
     html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -80,5 +84,5 @@ def email_confirmation(dst:str, token:str, username:str) -> dict:
         "subject":"Email validation",
         "message":html_template
     }
-
+    logger.info("{} Email Verify Template mounted to user {} with email {}".format(TAG, username, dst))
     return data

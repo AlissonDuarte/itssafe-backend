@@ -35,11 +35,13 @@ class HostingerEmail:
         with smtplib.SMTP_SSL(self.host, self.port) as server:
             try:
                 server.login(self.email, self.password)
+                logger.info("{} Successful login on Hostinger SMTP to {}".format(TAG, dst))
             except Exception as e:
                 logger.info("{} Error in login proccess with Email {}".format(TAG, e))
 
             try:
                 server.send_message(self.mime)
+                logger.info("{} Message sended with Hostinger SMTP to {}".format(TAG, dst))
             except Exception as e:
                 logger.info("{} login with success but error to send a message {}".format(TAG, e))
 
@@ -47,4 +49,5 @@ class HostingerEmail:
         dst = data.get("dst")
         subject = data.get("subject")
         message = data.get("message")
+        logger.info("{} Interface accessed to dst {}".format(TAG, dst))
         self._send_email(dst, subject, message)
