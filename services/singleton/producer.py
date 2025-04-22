@@ -1,3 +1,3 @@
 from services.rabbit.producer import Producer
 
-producer = "a"
+producer = Producer('alerts')
