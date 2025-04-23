@@ -7,7 +7,7 @@ from crud import crud_user
 from models import models
 from services import security, auth, utils
 from database import SessionLocal
-from services.singleton.hostinger import hostinger_email
+from services.singleton.amazon import ses_email
 
 router = APIRouter()
 
@@ -32,7 +32,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         token=auth.create_access_token({"email":user.email, "uuid":response.uuid}, timedelta(days=1)),
         username=user.username
     )
-    hostinger_email.send_email_interface(data=payload_email)
+    ses_email.send_email_interface(data=payload_email)
     return response
 
 
