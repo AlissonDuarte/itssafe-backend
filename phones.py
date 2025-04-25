@@ -8,7 +8,7 @@ from database import engine
 import json
 
 
-paths = ["backend/seed/sp/thief/carros.json", "backend/seed/sp/thief/coordenadas_formatadas.json", "backend/seed/sp/thief/objetos_subtraidos.json"]
+paths = ["carros.json"]
 tamanho_lote = 1000
 
 def ler_em_lotes(path, tamanho_lote):
@@ -24,7 +24,7 @@ with Session(engine) as session:
             registros = []
             for d in lote:
                 lat, lon = d["local"]
-                point = WKTElement(f"POINT({lat} {lon})", srid=4326)
+                point = WKTElement(f"POINT({lon} {lat})", srid=4326)
                 registros.append({
                     "user_uuid": d["user_uuid"],
                     "type": d["type"],

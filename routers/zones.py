@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
-from geoalchemy2 import WKTElement
+from geopy.distance import geodesic
 from schemas import schemas
 from database import SessionLocal
 from services import geoloc, auth
@@ -49,29 +49,43 @@ def get_danger_zones(
         )
     return cluster
 
+from geoalchemy2.functions import ST_Within, ST_MakeEnvelope
+
 
 @router.get("/zonas")
 def get_zonas(
-    swLat: float, swLng: float, neLat: float, neLng: float, db: Session = Depends(get_db)
+    swLat: float, swLng: float, neLat: float, neLng: float, 
+    db: Session = Depends(get_db)
 ):
-    user_bbox = {
-        "sw_lat": swLat,
-        "sw_lng": swLng,
-        "ne_lat": neLat,
-        "ne_lng": neLng
-    }
-
-    # Consulta de ocorrências dentro do retângulo
+    bbox = ST_MakeEnvelope(
+        min(swLng, neLng),  
+        min(swLat, neLat),
+        max(swLng, neLng),
+        max(swLat, neLat),
+        4326  # SRID
+    )
+    diagonal_km = geodesic((swLat, swLng), (neLat, neLng)).kilometers
+    
+    if diagonal_km > 10: 
+        raise HTTPException(
+            status_code=400,
+            detail="Very wide viewing area. Zoom in on the map to load risk zones."
+        )
     query = db.query(models.Occurrence).filter(
-        models.Occurrence.local.ST_Within(
-            WKTElement(f"POLYGON(({swLng} {swLat}, {neLng} {swLat}, {neLng} {neLat}, {swLng} {neLat}, {swLng} {swLat}))", srid=4326)
+        ST_Within(
+            models.Occurrence.local,  
+            bbox 
         )
     ).all()
 
     occurrences_coords = [occurrence.coordinates for occurrence in query]
-
-    # Aplicar clustering DBSCAN
-    clustering = geoloc.ClusteringResult()
-    geojson = clustering.generate_geojson_cluster_polygons(occurrences_coords, eps=0.5, min_samples=2)
-
-    return geojson
+    if occurrences_coords:
+        clustering = geoloc.ClusteringResult()
+        geojson = clustering.generate_geojson_cluster_polygons(
+            occurrences_coords, 
+            eps=0.5, 
+            min_samples=2
+        )
+        return geojson
+    else:
+        return {"message": "Nenhuma ocorrência encontrada na área especificada"}
