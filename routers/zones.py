@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
+from geoalchemy2 import WKTElement
 from schemas import schemas
 from database import SessionLocal
 from services import geoloc, auth
 from services.singleton.producer import producer
 from crud import crud_user
+from models import models
 
 
 router = APIRouter()
@@ -46,3 +48,30 @@ def get_danger_zones(
             }
         )
     return cluster
+
+
+@router.get("/zonas")
+def get_zonas(
+    swLat: float, swLng: float, neLat: float, neLng: float, db: Session = Depends(get_db)
+):
+    user_bbox = {
+        "sw_lat": swLat,
+        "sw_lng": swLng,
+        "ne_lat": neLat,
+        "ne_lng": neLng
+    }
+
+    # Consulta de ocorrências dentro do retângulo
+    query = db.query(models.Occurrence).filter(
+        models.Occurrence.local.ST_Within(
+            WKTElement(f"POLYGON(({swLng} {swLat}, {neLng} {swLat}, {neLng} {neLat}, {swLng} {neLat}, {swLng} {swLat}))", srid=4326)
+        )
+    ).all()
+
+    occurrences_coords = [occurrence.coordinates for occurrence in query]
+
+    # Aplicar clustering DBSCAN
+    clustering = geoloc.ClusteringResult()
+    geojson = clustering.generate_geojson_cluster_polygons(occurrences_coords, eps=0.5, min_samples=2)
+
+    return geojson
