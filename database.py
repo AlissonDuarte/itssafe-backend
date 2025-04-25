@@ -16,7 +16,7 @@ if db_mode == "prd":
 else:
     DATABASE_URL = "postgresql://myuser:mypassword@localhost:5432/mydb"
 
-print("DATABASE URL", DATABASE_URL)
+print("DATABASE URL", DATABASE_URL, type(db_mode), db_mode, db_mode=="prd")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
