@@ -38,14 +38,14 @@ def create_occurrence_and_user_occurrence(db: Session, occurrence_data: schemas.
         logger.error("{} User {} has reached the limit of 10 occurrences per month".format(TAG, user.username))
         raise HTTPException(status_code=403, detail="User has reached the limit of 10 occurrences per month")
     
-    print("lat, long", occurrence_data.local[0], occurrence_data.local[1])
     point = f"POINT({occurrence_data.local[0]} {occurrence_data.local[1]})"
 
     db_occurrence = models.Occurrence(
         description=occurrence_data.description,
         type=occurrence_data.type,
         local=WKTElement(point, srid=4326),
-        coordinates=occurrence_data.local
+        coordinates=occurrence_data.local,
+        event_datetime=occurrence_data.event_datetime
     )
 
     db.add(db_occurrence)

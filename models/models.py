@@ -54,6 +54,7 @@ class Occurrence(Base):
     type = Column(SQLEnum(OccurrenceType), nullable=False)
     coordinates = Column(JSON, nullable=False)
     local = Column(Geometry(geometry_type='POINT', srid=4326))
+    event_datetime = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)

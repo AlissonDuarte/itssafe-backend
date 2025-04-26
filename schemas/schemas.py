@@ -50,6 +50,7 @@ class OccurrenceCreate(BaseModel):
     description: str
     type: str
     local: List[float]
+    event_datetime: str
 
 class OccurrenceResponse(BaseModel):
     id: int
