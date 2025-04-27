@@ -62,7 +62,7 @@ def get_danger_zones(
 
 
 
-@router.get("/zonas")
+@router.get("/remote-zones")
 def get_zonas(
     swLat: float, swLng: float, neLat: float, neLng: float, 
     db: Session = Depends(get_db)
@@ -87,7 +87,12 @@ def get_zonas(
             bbox 
         )
     ).all()
-
+    print("query", db.query(models.Occurrence).filter(
+        ST_Within(
+            models.Occurrence.local,  
+            bbox 
+        )
+    ))
     occurrences_coords = [occurrence.coordinates for occurrence in query]
     if occurrences_coords:
         clustering = geoloc.ClusteringResult()

@@ -10,19 +10,28 @@ from sqlalchemy import func
 from geoalchemy2 import WKTElement
 from geoalchemy2.functions import ST_DWithin
 
+
+
+from shapely.geometry import Polygon
+
+from shapely.geometry import MultiPoint, Polygon
+import math
+from typing import List
+
+
 class ClusteringResult:
     def __init__(self):
         return
+
     def haversine(self, lat1, lon1, lat2, lon2):
-        
-        R = 6371 
+        R = 6371  # Raio da Terra em km
         phi1, phi2 = math.radians(lat1), math.radians(lat2)
         delta_phi = math.radians(lat2 - lat1)
         delta_lambda = math.radians(lon2 - lon1)
-        
+
         a = math.sin(delta_phi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2)**2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        
+
         return R * c 
 
     def region_query(self, point, points, eps):
@@ -34,51 +43,62 @@ class ClusteringResult:
 
     def dbscan(self, points: List[List[float]], eps: float, min_samples: int):
         n = len(points)
-        labels = [-1] * n 
+        labels = [-1] * n  # Todos os pontos começam como "não visitados"
         cluster_id = 0
-        
+
         for i in range(n):
             if labels[i] != -1:
                 continue
-            
+
             neighbors = self.region_query(points[i], points, eps)
-            
+
             if len(neighbors) < min_samples:
-                labels[i] = -1
+                labels[i] = -1  # Marca como ruído
                 continue
-            
+
             cluster_id += 1
             labels[i] = cluster_id
-            
+
             to_visit = neighbors[:]
-            to_visit.remove(i) 
+            to_visit.remove(i)  # Remove o próprio ponto da lista de visitação
             while to_visit:
                 current_point = to_visit.pop()
-                
+
                 if labels[current_point] == -1:
                     labels[current_point] = cluster_id 
                 if labels[current_point] != 0:
                     continue
-                
+
                 new_neighbors = self.region_query(points[current_point], points, eps)
                 if len(new_neighbors) >= min_samples:
                     to_visit.extend(new_neighbors)
-                    to_visit = list(set(to_visit))
+                    to_visit = list(set(to_visit))  # Elimina duplicatas
                     labels[current_point] = cluster_id
-        
+
         return labels
+
+    def is_overlapping(self, new_polygon, clusters_polygons):
+        for existing_polygon in clusters_polygons:
+            if new_polygon.intersects(existing_polygon):  # Verifica se há interseção
+                return True
+        return False
+
+    def simplify_polygon(self, polygon, tolerance=0.01):
+        return polygon.simplify(tolerance, preserve_topology=True)
 
     def generate_geojson_cluster_polygons(self, points: List[List[float]], eps: float, min_samples: int):
         labels = self.dbscan(points, eps, min_samples)
-        
+
         clusters = {}
         for i, label in enumerate(labels):
             if label != -1:
                 if label not in clusters:
                     clusters[label] = []
                 clusters[label].append(points[i])
-        
+
         geojson = []
+        clusters_polygons = []  # Armazena os polígonos gerados
+
         for cluster_id, cluster_points in clusters.items():
             multipoint = MultiPoint(cluster_points)
             convex_hull = multipoint.convex_hull
@@ -92,18 +112,24 @@ class ClusteringResult:
                 risk_level = "high"
 
             if isinstance(convex_hull, Polygon):
-                geojson.append({
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": list(convex_hull.exterior.coords)
-                    },
-                    "properties": {
-                        "cluster_id": cluster_id,
-                        "risk_level": risk_level,
-                        "occurrence_count": occurrence_count
-                    }
-                })
+                # Simplifica o polígono antes de adicioná-lo ao GeoJSON
+                simplified_polygon = self.simplify_polygon(convex_hull)
+
+                # Verifique se o novo polígono não sobrepõe outros existentes
+                if not self.is_overlapping(simplified_polygon, clusters_polygons):
+                    geojson.append({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": list(simplified_polygon.exterior.coords)
+                        },
+                        "properties": {
+                            "cluster_id": cluster_id,
+                            "risk_level": risk_level,
+                            "occurrence_count": occurrence_count
+                        }
+                    })
+                    clusters_polygons.append(simplified_polygon)  # Armazena o polígono simplificado
             else:
                 geojson.append({
                     "type": "Feature",
@@ -115,10 +141,12 @@ class ClusteringResult:
                         "cluster_id": cluster_id,
                         "risk_level": risk_level,
                         "occurrence_count": occurrence_count
-
                     }
                 })
+
         return geojson
+
+
 
 
 class Scans():
