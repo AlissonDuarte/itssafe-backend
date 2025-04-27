@@ -10,7 +10,7 @@ class UserBase(BaseModel):
     gender: Literal['male', 'female', 'other']
     info: Optional[dict[str, Any]] = {"data":None}
     phone_identifier: str
-    subscription_status: str = "inactive"
+    subscription_status: str = "active"
 
 
 class UserCreate(UserBase):
@@ -21,7 +21,7 @@ class UserResponse(UserBase):
     uuid: UUID
     username: str
     contributions: int
-    remaining:  Optional[int] = 0
+    remaining: int
     created_at: datetime
     updated_at: Optional[datetime]
     deleted_at: Optional[datetime]
@@ -41,14 +41,14 @@ class UserUpdate(BaseModel):
 
 class OccurrenceBase(BaseModel):
     description: str
-    type: str
+    type: Literal["Theft", "Aggressive Person", "Suspicious Activity", "Fight", "Drugs"]
     latitude: float
     longitude: float
 
 
 class OccurrenceCreate(BaseModel):
     description: str
-    type: str
+    type: Literal["Theft", "Aggressive Person", "Suspicious Activity", "Fight", "Drugs"]
     local: List[float]
     event_datetime: str
 

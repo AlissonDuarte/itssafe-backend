@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
-from geopy.distance import geodesic
+from geoalchemy2 import WKTElement
+from typing import List
 from schemas import schemas
 from database import SessionLocal
 from services import geoloc, auth
@@ -24,6 +25,8 @@ def get_danger_zones(
         lat:float = Query(..., description="Lat"),
         lng:float = Query(..., description="Long"),
         radius:float = Query(..., description="Radius zone"),
+        occurrenceType: List[str] = Query(default=[]),
+        shifts: List[str] = Query(default=[]),
         db: Session = Depends(get_db),
         user_uuid: str = Depends(auth.verify_token)
     ):
@@ -35,8 +38,13 @@ def get_danger_zones(
     if not user.phone_identifier:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User without token identifier")
 
-    sc = geoloc.Scans(db).user_location(base_location = [lat, lng], radius_meters = radius)
-    
+    sc = geoloc.Scans(db).user_location(
+        base_location = [lat, lng], 
+        radius_meters = radius, 
+        raw_occurrence_type = occurrenceType,
+        raw_shifts = shifts
+    )
+
     cr = geoloc.ClusteringResult()
     cluster = cr.generate_geojson_cluster_polygons(sc, eps = radius,min_samples=2)
     if sc:
@@ -49,43 +57,26 @@ def get_danger_zones(
         )
     return cluster
 
-from geoalchemy2.functions import ST_Within, ST_MakeEnvelope
-
-
 @router.get("/zonas")
 def get_zonas(
-    swLat: float, swLng: float, neLat: float, neLng: float, 
-    db: Session = Depends(get_db)
+    swLat: float, swLng: float, neLat: float, neLng: float, db: Session = Depends(get_db)
 ):
-    bbox = ST_MakeEnvelope(
-        min(swLng, neLng),  
-        min(swLat, neLat),
-        max(swLng, neLng),
-        max(swLat, neLat),
-        4326  # SRID
-    )
-    diagonal_km = geodesic((swLat, swLng), (neLat, neLng)).kilometers
-    
-    if diagonal_km > 10: 
-        raise HTTPException(
-            status_code=400,
-            detail="Very wide viewing area. Zoom in on the map to load risk zones."
-        )
+    user_bbox = {
+        "sw_lat": swLat,
+        "sw_lng": swLng,
+        "ne_lat": neLat,
+        "ne_lng": neLng
+    }
+
     query = db.query(models.Occurrence).filter(
-        ST_Within(
-            models.Occurrence.local,  
-            bbox 
+        models.Occurrence.local.ST_Within(
+            WKTElement(f"POLYGON(({swLng} {swLat}, {neLng} {swLat}, {neLng} {neLat}, {swLng} {neLat}, {swLng} {swLat}))", srid=4326)
         )
     ).all()
 
     occurrences_coords = [occurrence.coordinates for occurrence in query]
-    if occurrences_coords:
-        clustering = geoloc.ClusteringResult()
-        geojson = clustering.generate_geojson_cluster_polygons(
-            occurrences_coords, 
-            eps=0.5, 
-            min_samples=2
-        )
-        return geojson
-    else:
-        return {"message": "Nenhuma ocorrência encontrada na área especificada"}
+
+    clustering = geoloc.ClusteringResult()
+    geojson = clustering.generate_geojson_cluster_polygons(occurrences_coords, eps=0.5, min_samples=2)
+
+    return geojson

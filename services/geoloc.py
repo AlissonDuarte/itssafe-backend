@@ -120,23 +120,36 @@ class ClusteringResult:
                 })
         return geojson
 
+
 class Scans():
     def __init__(self, db:Session):
         self.db = db
 
-    def user_location(self, base_location: list, radius_meters: float = 1000):
+    def user_location(self, base_location: list, radius_meters: float = 1000, raw_occurrence_type: list = [], raw_shifts: list = []):
         latitude, longitude = base_location
 
         user_location = WKTElement(f'POINT({latitude} {longitude})', srid=4326)
 
-        # Realizando a consulta com a distância
         query = self.db.query(models.Occurrence).filter(
             ST_DWithin(
-                func.ST_GeographyFromText(func.ST_AsText(models.Occurrence.local)),  # ou Occurrence.coordinates
+                func.ST_GeographyFromText(func.ST_AsText(models.Occurrence.local)),
                 user_location,
                 radius_meters
             )
-        )   
+        )
+        
+        if raw_occurrence_type:
+            occurrence_options = [ocr.value for ocr in models.Occurrence.OccurrenceType]
+            occurrence_type = [occurrence for occurrence in raw_occurrence_type if occurrence in occurrence_options]
+            if occurrence_type:
+                query = query.filter(models.Occurrence.type.in_(occurrence_type))
+
+        if raw_shifts:
+            shifts_options = [shf.value for shf in models.Occurrence.ShiftOptions]
+            shifts = [shift for shift in raw_shifts if shift in shifts_options]
+            if shifts:
+                query = query.filter(models.Occurrence.shift.in_(shifts))
+
         results = query.all()
         data = [item.coordinates for item in results]
         return data

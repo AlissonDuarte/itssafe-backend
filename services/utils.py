@@ -1,5 +1,6 @@
 from services.singleton.log import logger
 from geoalchemy2.elements import WKTElement
+from datetime import datetime
 
 
 TAG = "UTILS -> "
@@ -86,3 +87,17 @@ def email_confirmation(dst:str, token:str, username:str) -> dict:
     }
     logger.info("{} Email Verify Template mounted to user {} with email {}".format(TAG, username, dst))
     return data
+
+
+
+def determine_shift(datetime_str: str):
+    data_datetime = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
+    hour = data_datetime.hour
+    if 6 <= hour < 12:
+        return "Morning"
+    elif 12 <= hour < 18:
+        return "Afternoon"
+    elif 18 <= hour < 24:
+        return "Night"
+    else:
+        return "Down"

@@ -7,6 +7,7 @@ from crud import crud_user
 from fastapi import HTTPException
 from datetime import datetime, timezone
 from services.singleton.log import logger
+from services.utils import determine_shift
 
 
 TAG = "Occurrences_CRUD ->"
@@ -40,12 +41,14 @@ def create_occurrence_and_user_occurrence(db: Session, occurrence_data: schemas.
     
     point = f"POINT({occurrence_data.local[0]} {occurrence_data.local[1]})"
 
+    shift = determine_shift(occurrence_data.event_datetime)
     db_occurrence = models.Occurrence(
         description=occurrence_data.description,
         type=occurrence_data.type,
         local=WKTElement(point, srid=4326),
         coordinates=occurrence_data.local,
-        event_datetime=occurrence_data.event_datetime
+        event_datetime=occurrence_data.event_datetime,
+        shift=shift
     )
 
     db.add(db_occurrence)

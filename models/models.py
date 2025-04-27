@@ -46,6 +46,13 @@ class Occurrence(Base):
         PERSON_AGGRESSIVE = "Aggressive Person"
         DRUGS = "Drugs"
 
+    class ShiftOptions(str, Enum):
+        MORNING = "Morning"
+        AFTERNOON = "Afternoon"
+        NIGHT = "Night"
+        DOWN = "Down"
+
+
     __tablename__ = "occurrences"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -54,6 +61,7 @@ class Occurrence(Base):
     type = Column(SQLEnum(OccurrenceType), nullable=False)
     coordinates = Column(JSON, nullable=False)
     local = Column(Geometry(geometry_type='POINT', srid=4326))
+    shift = Column(SQLEnum(ShiftOptions), nullable=False)
     event_datetime = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
