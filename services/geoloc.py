@@ -1,11 +1,23 @@
-from typing import List
-from shapely.geometry import MultiPoint, Polygon, Point
 import math
+from typing import List
+from models import models
+
+from shapely.geometry import MultiPoint
+from shapely.geometry.polygon import Polygon
 from sqlalchemy.orm import Session
+
 from sqlalchemy import func
 from geoalchemy2 import WKTElement
 from geoalchemy2.functions import ST_DWithin
-from models import models
+
+
+
+from shapely.geometry import Polygon
+
+from shapely.geometry import MultiPoint, Polygon
+import math
+from typing import List
+
 
 class ClusteringResult:
     def __init__(self):
@@ -31,7 +43,7 @@ class ClusteringResult:
 
     def dbscan(self, points: List[List[float]], eps: float, min_samples: int):
         n = len(points)
-        labels = [-1] * n
+        labels = [-1] * n  # Todos os pontos começam como "não visitados"
         cluster_id = 0
 
         for i in range(n):
@@ -41,14 +53,14 @@ class ClusteringResult:
             neighbors = self.region_query(points[i], points, eps)
 
             if len(neighbors) < min_samples:
-                labels[i] = -1
+                labels[i] = -1  # Marca como ruído
                 continue
 
             cluster_id += 1
             labels[i] = cluster_id
 
             to_visit = neighbors[:]
-            to_visit.remove(i)
+            to_visit.remove(i)  # Remove o próprio ponto da lista de visitação
             while to_visit:
                 current_point = to_visit.pop()
 
@@ -60,17 +72,14 @@ class ClusteringResult:
                 new_neighbors = self.region_query(points[current_point], points, eps)
                 if len(new_neighbors) >= min_samples:
                     to_visit.extend(new_neighbors)
-                    to_visit = list(set(to_visit))
+                    to_visit = list(set(to_visit))  # Elimina duplicatas
                     labels[current_point] = cluster_id
 
         return labels
 
-    def is_significantly_overlapping(self, new_polygon, existing_polygons, overlap_threshold=0.3):
-        """Verifica se há sobreposição significativa (acima do threshold)"""
-        for existing in existing_polygons:
-            intersection_area = new_polygon.intersection(existing).area
-            smaller_area = min(new_polygon.area, existing.area)
-            if smaller_area > 0 and (intersection_area / smaller_area) > overlap_threshold:
+    def is_overlapping(self, new_polygon, clusters_polygons):
+        for existing_polygon in clusters_polygons:
+            if new_polygon.intersects(existing_polygon):  # Verifica se há interseção
                 return True
         return False
 
@@ -78,12 +87,8 @@ class ClusteringResult:
         return polygon.simplify(tolerance, preserve_topology=True)
 
     def generate_geojson_cluster_polygons(self, points: List[List[float]], eps: float, min_samples: int):
-        if not points:
-            return []
-
         labels = self.dbscan(points, eps, min_samples)
 
-        # Agrupa pontos por cluster
         clusters = {}
         for i, label in enumerate(labels):
             if label != -1:
@@ -91,25 +96,12 @@ class ClusteringResult:
                     clusters[label] = []
                 clusters[label].append(points[i])
 
-        # Ordena clusters por tamanho (maiores primeiro)
-        sorted_clusters = sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True)
-
         geojson = []
-        clusters_polygons = []
+        clusters_polygons = []  # Armazena os polígonos gerados
 
-        for cluster_id, cluster_points in sorted_clusters:
-            if len(cluster_points) < 3:  # Mínimo 3 pontos para formar um polígono
-                # Cria um buffer ao redor do ponto ou par de pontos
-                if len(cluster_points) == 1:
-                    center = Point(cluster_points[0])
-                    polygon = center.buffer(0.0001)  # Pequeno buffer (~11 metros)
-                else:
-                    multipoint = MultiPoint(cluster_points)
-                    polygon = multipoint.convex_hull.buffer(0.0001)
-            else:
-                multipoint = MultiPoint(cluster_points)
-                polygon = multipoint.convex_hull
-
+        for cluster_id, cluster_points in clusters.items():
+            multipoint = MultiPoint(cluster_points)
+            convex_hull = multipoint.convex_hull
             occurrence_count = len(cluster_points)
 
             if occurrence_count <= 10:
@@ -119,16 +111,17 @@ class ClusteringResult:
             else:
                 risk_level = "high"
 
-            simplified_polygon = self.simplify_polygon(polygon)
+            if isinstance(convex_hull, Polygon):
+                # Simplifica o polígono antes de adicioná-lo ao GeoJSON
+                simplified_polygon = self.simplify_polygon(convex_hull)
 
-            # Verifica sobreposição significativa com clusters existentes
-            if not self.is_significantly_overlapping(simplified_polygon, clusters_polygons):
-                if isinstance(simplified_polygon, Polygon):
+                # Verifique se o novo polígono não sobrepõe outros existentes
+                if not self.is_overlapping(simplified_polygon, clusters_polygons):
                     geojson.append({
                         "type": "Feature",
                         "geometry": {
                             "type": "Polygon",
-                            "coordinates": [list(simplified_polygon.exterior.coords)]
+                            "coordinates": list(simplified_polygon.exterior.coords)
                         },
                         "properties": {
                             "cluster_id": cluster_id,
@@ -136,22 +129,25 @@ class ClusteringResult:
                             "occurrence_count": occurrence_count
                         }
                     })
-                    clusters_polygons.append(simplified_polygon)
-                elif isinstance(simplified_polygon, Point):
-                    geojson.append({
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [simplified_polygon.x, simplified_polygon.y]
-                        },
-                        "properties": {
-                            "cluster_id": cluster_id,
-                            "risk_level": risk_level,
-                            "occurrence_count": occurrence_count
-                        }
-                    })
+                    clusters_polygons.append(simplified_polygon)  # Armazena o polígono simplificado
+            else:
+                geojson.append({
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": list(convex_hull.coords)
+                    },
+                    "properties": {
+                        "cluster_id": cluster_id,
+                        "risk_level": risk_level,
+                        "occurrence_count": occurrence_count
+                    }
+                })
 
         return geojson
+
+
+
 
 class Scans():
     def __init__(self, db:Session):
@@ -183,5 +179,6 @@ class Scans():
                 query = query.filter(models.Occurrence.shift.in_(shifts))
 
         results = query.all()
-        data = [item.coordinates for item in results if hasattr(item, 'coordinates') and item.coordinates]
+        data = [item.coordinates for item in results]
         return data
+        
