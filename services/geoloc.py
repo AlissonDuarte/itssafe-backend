@@ -4,6 +4,8 @@ from models import models
 
 from shapely.geometry import MultiPoint
 from shapely.geometry.polygon import Polygon
+from shapely.ops import unary_union
+
 from sqlalchemy.orm import Session
 
 from sqlalchemy import func
@@ -86,58 +88,65 @@ class ClusteringResult:
     def simplify_polygon(self, polygon, tolerance=0.01):
         return polygon.simplify(tolerance, preserve_topology=True)
 
-    def generate_geojson_cluster_polygons(self, points: List[List[float]], eps: float, min_samples: int):
-        labels = self.dbscan(points, eps, min_samples)
+def generate_geojson_cluster_polygons(self, points: List[List[float]], eps: float, min_samples: int):
+    labels = self.dbscan(points, eps, min_samples)
 
-        clusters = {}
-        for i, label in enumerate(labels):
-            if label != -1:
-                if label not in clusters:
-                    clusters[label] = []
-                clusters[label].append(points[i])
+    clusters = {}
+    for i, label in enumerate(labels):
+        if label != -1:
+            if label not in clusters:
+                clusters[label] = []
+            clusters[label].append(points[i])
 
-        geojson = []
-        clusters_polygons = []  # Armazena os polígonos gerados
+    geojson = []
+    clusters_polygons = []
 
-        for cluster_id, cluster_points in clusters.items():
-            multipoint = MultiPoint(cluster_points)
-            convex_hull = multipoint.convex_hull
-            occurrence_count = len(cluster_points)
+    for cluster_id, cluster_points in clusters.items():
+        multipoint = MultiPoint(cluster_points)
+        convex_hull = multipoint.convex_hull
+        occurrence_count = len(cluster_points)
 
-            if occurrence_count <= 10:
-                continue
-            if occurrence_count <= 30:
-                risk_level = "low"
-            elif occurrence_count >30 and occurrence_count <=50:
-                risk_level = "medium"
-            else:
-                risk_level = "high"
+        if occurrence_count <= 10:
+            risk_level = "low"
+        elif occurrence_count <= 30:
+            risk_level = "medium"
+        else:
+            risk_level = "high"
 
-            if isinstance(convex_hull, Polygon):
-                # Simplifica o polígono antes de adicioná-lo ao GeoJSON
-                simplified_polygon = self.simplify_polygon(convex_hull)
+        if isinstance(convex_hull, Polygon):
+            simplified_polygon = self.simplify_polygon(convex_hull)
 
-                # Verifique se o novo polígono não sobrepõe outros existentes
-                if not self.is_overlapping(simplified_polygon, clusters_polygons):
-                    geojson.append({
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": list(simplified_polygon.exterior.coords)
-                        },
-                        "properties": {
-                            "cluster_id": cluster_id,
-                            "risk_level": risk_level,
-                            "occurrence_count": occurrence_count
-                        }
-                    })
-                    clusters_polygons.append(simplified_polygon)  # Armazena o polígono simplificado
-            else:
+            # Verifica se há interseção com polígonos existentes
+            overlapping = [p for p in clusters_polygons if p.intersects(simplified_polygon)]
+
+            if overlapping:
+                # Une os polígonos sobrepostos com o novo
+                overlapping.append(simplified_polygon)
+                merged = unary_union(overlapping)
+
+                # Remove os antigos e adiciona o novo unificado
+                clusters_polygons = [p for p in clusters_polygons if not any(p.equals(o) for o in overlapping)]
+                clusters_polygons.append(merged)
+
                 geojson.append({
                     "type": "Feature",
                     "geometry": {
-                        "type": "LineString",
-                        "coordinates": list(convex_hull.coords)
+                        "type": "Polygon",
+                        "coordinates": [list(merged.exterior.coords)]
+                    },
+                    "properties": {
+                        "cluster_id": cluster_id,
+                        "risk_level": risk_level,
+                        "occurrence_count": occurrence_count
+                    }
+                })
+            else:
+                clusters_polygons.append(simplified_polygon)
+                geojson.append({
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [list(simplified_polygon.exterior.coords)]
                     },
                     "properties": {
                         "cluster_id": cluster_id,
@@ -146,8 +155,21 @@ class ClusteringResult:
                     }
                 })
 
-        return geojson
+        else:
+            geojson.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": list(convex_hull.coords)
+                },
+                "properties": {
+                    "cluster_id": cluster_id,
+                    "risk_level": risk_level,
+                    "occurrence_count": occurrence_count
+                }
+            })
 
+    return geojson
 
 
 
