@@ -87,19 +87,14 @@ def get_zonas(
             bbox 
         )
     ).all()
-    print("query", db.query(models.Occurrence).filter(
-        ST_Within(
-            models.Occurrence.local,  
-            bbox 
-        )
-    ))
+
     occurrences_coords = [occurrence.coordinates for occurrence in query]
     if occurrences_coords:
         clustering = geoloc.ClusteringResult()
         geojson = clustering.generate_geojson_cluster_polygons(
             occurrences_coords, 
-            eps=0.5, 
-            min_samples=2
+            eps=0.15, 
+            min_samples=5
         )
         return geojson
     else:
