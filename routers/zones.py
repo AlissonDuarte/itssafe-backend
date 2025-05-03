@@ -93,8 +93,8 @@ def get_zonas(
         clustering = geoloc.ClusteringResult()
         geojson = clustering.generate_geojson_cluster_polygons(
             occurrences_coords, 
-            eps=0.15, 
-            min_samples=5
+            eps=0.5, 
+            min_samples=2
         )
         return geojson
     else:
