@@ -105,8 +105,10 @@ class ClusteringResult:
             occurrence_count = len(cluster_points)
 
             if occurrence_count <= 10:
+                continue
+            if occurrence_count <= 30:
                 risk_level = "low"
-            elif occurrence_count <= 30:
+            elif occurrence_count >30 and occurrence_count <=50:
                 risk_level = "medium"
             else:
                 risk_level = "high"
