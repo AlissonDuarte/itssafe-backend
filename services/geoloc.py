@@ -1,23 +1,11 @@
-import math
 from typing import List
-from models import models
-
-from shapely.geometry import MultiPoint
-from shapely.geometry.polygon import Polygon
+from shapely.geometry import MultiPoint, Polygon
+import math
 from sqlalchemy.orm import Session
-
 from sqlalchemy import func
 from geoalchemy2 import WKTElement
 from geoalchemy2.functions import ST_DWithin
-
-
-
-from shapely.geometry import Polygon
-
-from shapely.geometry import MultiPoint, Polygon
-import math
-from typing import List
-
+from models import models
 
 class ClusteringResult:
     def __init__(self):
@@ -43,7 +31,7 @@ class ClusteringResult:
 
     def dbscan(self, points: List[List[float]], eps: float, min_samples: int):
         n = len(points)
-        labels = [-1] * n  # Todos os pontos começam como "não visitados"
+        labels = [-1] * n
         cluster_id = 0
 
         for i in range(n):
@@ -53,14 +41,14 @@ class ClusteringResult:
             neighbors = self.region_query(points[i], points, eps)
 
             if len(neighbors) < min_samples:
-                labels[i] = -1  # Marca como ruído
+                labels[i] = -1
                 continue
 
             cluster_id += 1
             labels[i] = cluster_id
 
             to_visit = neighbors[:]
-            to_visit.remove(i)  # Remove o próprio ponto da lista de visitação
+            to_visit.remove(i)
             while to_visit:
                 current_point = to_visit.pop()
 
@@ -72,14 +60,14 @@ class ClusteringResult:
                 new_neighbors = self.region_query(points[current_point], points, eps)
                 if len(new_neighbors) >= min_samples:
                     to_visit.extend(new_neighbors)
-                    to_visit = list(set(to_visit))  # Elimina duplicatas
+                    to_visit = list(set(to_visit))
                     labels[current_point] = cluster_id
 
         return labels
 
     def is_overlapping(self, new_polygon, clusters_polygons):
         for existing_polygon in clusters_polygons:
-            if new_polygon.intersects(existing_polygon):  # Verifica se há interseção
+            if new_polygon.intersects(existing_polygon):
                 return True
         return False
 
@@ -89,6 +77,7 @@ class ClusteringResult:
     def generate_geojson_cluster_polygons(self, points: List[List[float]], eps: float, min_samples: int):
         labels = self.dbscan(points, eps, min_samples)
 
+        # Agrupa pontos por cluster
         clusters = {}
         for i, label in enumerate(labels):
             if label != -1:
@@ -96,10 +85,13 @@ class ClusteringResult:
                     clusters[label] = []
                 clusters[label].append(points[i])
 
-        geojson = []
-        clusters_polygons = []  # Armazena os polígonos gerados
+        # Ordena clusters por tamanho (maiores primeiro)
+        sorted_clusters = sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True)
 
-        for cluster_id, cluster_points in clusters.items():
+        geojson = []
+        clusters_polygons = []
+
+        for cluster_id, cluster_points in sorted_clusters:
             multipoint = MultiPoint(cluster_points)
             convex_hull = multipoint.convex_hull
             occurrence_count = len(cluster_points)
@@ -112,16 +104,15 @@ class ClusteringResult:
                 risk_level = "high"
 
             if isinstance(convex_hull, Polygon):
-                # Simplifica o polígono antes de adicioná-lo ao GeoJSON
                 simplified_polygon = self.simplify_polygon(convex_hull)
-
-                # Verifique se o novo polígono não sobrepõe outros existentes
+                
+                # Verifica sobreposição com clusters existentes
                 if not self.is_overlapping(simplified_polygon, clusters_polygons):
                     geojson.append({
                         "type": "Feature",
                         "geometry": {
                             "type": "Polygon",
-                            "coordinates": list(simplified_polygon.exterior.coords)
+                            "coordinates": [list(simplified_polygon.exterior.coords)]
                         },
                         "properties": {
                             "cluster_id": cluster_id,
@@ -129,25 +120,24 @@ class ClusteringResult:
                             "occurrence_count": occurrence_count
                         }
                     })
-                    clusters_polygons.append(simplified_polygon)  # Armazena o polígono simplificado
+                    clusters_polygons.append(simplified_polygon)
             else:
-                geojson.append({
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "LineString",
-                        "coordinates": list(convex_hull.coords)
-                    },
-                    "properties": {
-                        "cluster_id": cluster_id,
-                        "risk_level": risk_level,
-                        "occurrence_count": occurrence_count
-                    }
-                })
+                # Para clusters muito pequenos (linhas ou pontos)
+                if not any(polygon.intersects(convex_hull) for polygon in clusters_polygons):
+                    geojson.append({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString" if hasattr(convex_hull, 'coords') else "Point",
+                            "coordinates": list(convex_hull.coords) if hasattr(convex_hull, 'coords') else [convex_hull.x, convex_hull.y]
+                        },
+                        "properties": {
+                            "cluster_id": cluster_id,
+                            "risk_level": risk_level,
+                            "occurrence_count": occurrence_count
+                        }
+                    })
 
         return geojson
-
-
-
 
 class Scans():
     def __init__(self, db:Session):
@@ -181,4 +171,3 @@ class Scans():
         results = query.all()
         data = [item.coordinates for item in results]
         return data
-        
