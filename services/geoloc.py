@@ -1,5 +1,5 @@
 from typing import List
-from shapely.geometry import MultiPoint, Polygon
+from shapely.geometry import MultiPoint, Polygon, Point
 import math
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -65,9 +65,12 @@ class ClusteringResult:
 
         return labels
 
-    def is_overlapping(self, new_polygon, clusters_polygons):
-        for existing_polygon in clusters_polygons:
-            if new_polygon.intersects(existing_polygon):
+    def is_significantly_overlapping(self, new_polygon, existing_polygons, overlap_threshold=0.3):
+        """Verifica se há sobreposição significativa (acima do threshold)"""
+        for existing in existing_polygons:
+            intersection_area = new_polygon.intersection(existing).area
+            smaller_area = min(new_polygon.area, existing.area)
+            if smaller_area > 0 and (intersection_area / smaller_area) > overlap_threshold:
                 return True
         return False
 
@@ -75,6 +78,9 @@ class ClusteringResult:
         return polygon.simplify(tolerance, preserve_topology=True)
 
     def generate_geojson_cluster_polygons(self, points: List[List[float]], eps: float, min_samples: int):
+        if not points:
+            return []
+
         labels = self.dbscan(points, eps, min_samples)
 
         # Agrupa pontos por cluster
@@ -92,8 +98,18 @@ class ClusteringResult:
         clusters_polygons = []
 
         for cluster_id, cluster_points in sorted_clusters:
-            multipoint = MultiPoint(cluster_points)
-            convex_hull = multipoint.convex_hull
+            if len(cluster_points) < 3:  # Mínimo 3 pontos para formar um polígono
+                # Cria um buffer ao redor do ponto ou par de pontos
+                if len(cluster_points) == 1:
+                    center = Point(cluster_points[0])
+                    polygon = center.buffer(0.0001)  # Pequeno buffer (~11 metros)
+                else:
+                    multipoint = MultiPoint(cluster_points)
+                    polygon = multipoint.convex_hull.buffer(0.0001)
+            else:
+                multipoint = MultiPoint(cluster_points)
+                polygon = multipoint.convex_hull
+
             occurrence_count = len(cluster_points)
 
             if occurrence_count <= 10:
@@ -103,11 +119,11 @@ class ClusteringResult:
             else:
                 risk_level = "high"
 
-            if isinstance(convex_hull, Polygon):
-                simplified_polygon = self.simplify_polygon(convex_hull)
-                
-                # Verifica sobreposição com clusters existentes
-                if not self.is_overlapping(simplified_polygon, clusters_polygons):
+            simplified_polygon = self.simplify_polygon(polygon)
+
+            # Verifica sobreposição significativa com clusters existentes
+            if not self.is_significantly_overlapping(simplified_polygon, clusters_polygons):
+                if isinstance(simplified_polygon, Polygon):
                     geojson.append({
                         "type": "Feature",
                         "geometry": {
@@ -121,14 +137,12 @@ class ClusteringResult:
                         }
                     })
                     clusters_polygons.append(simplified_polygon)
-            else:
-                # Para clusters muito pequenos (linhas ou pontos)
-                if not any(polygon.intersects(convex_hull) for polygon in clusters_polygons):
+                elif isinstance(simplified_polygon, Point):
                     geojson.append({
                         "type": "Feature",
                         "geometry": {
-                            "type": "LineString" if hasattr(convex_hull, 'coords') else "Point",
-                            "coordinates": list(convex_hull.coords) if hasattr(convex_hull, 'coords') else [convex_hull.x, convex_hull.y]
+                            "type": "Point",
+                            "coordinates": [simplified_polygon.x, simplified_polygon.y]
                         },
                         "properties": {
                             "cluster_id": cluster_id,
@@ -169,5 +183,5 @@ class Scans():
                 query = query.filter(models.Occurrence.shift.in_(shifts))
 
         results = query.all()
-        data = [item.coordinates for item in results]
+        data = [item.coordinates for item in results if hasattr(item, 'coordinates') and item.coordinates]
         return data
