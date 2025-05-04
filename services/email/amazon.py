@@ -13,7 +13,7 @@ class SESSMTP:
         logger.info(f"{TAG} Starting class")
         load_dotenv()
 
-        self.smtp_host = os.getenv("SES_SMTP_HOST", "email-smtp.us-east-1.amazonaws.com")  # substitua se for outra região
+        self.smtp_host = os.getenv("SES_SMTP_HOST", "email-smtp.us-east-1.amazonaws.com")
         self.smtp_port = int(os.getenv("SES_SMTP_PORT", 465))
         self.smtp_user = os.getenv("SES_SMTP_USERNAME")
         self.smtp_pass = os.getenv("SES_SMTP_PASSWORD")

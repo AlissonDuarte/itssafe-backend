@@ -1,15 +1,21 @@
+import requests
+import json
+import os
+
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
-from geoalchemy2 import WKTElement
-from geoalchemy2.functions import ST_Within, ST_MakeEnvelope
+from geoalchemy2.functions import ST_MakeEnvelope
 from geopy.distance import geodesic
 from typing import List
 from schemas import schemas
 from database import SessionLocal
 from services import geoloc, auth
 from services.singleton.producer import producer
+from services.singleton.s3 import client_s3
 from crud import crud_user
 from models import models
+
 
 
 router = APIRouter()
@@ -62,6 +68,14 @@ def get_danger_zones(
 
 
 
+def round_grid(value: float, precision=1) -> float:
+    return round(value, precision)
+
+
+BUCKET_NAME = 'itssafeboundzones'
+CLOUDFRONT_URL = os.getenv("AWS_CLOUDFRONT_URL")
+GRID_SIZE = 0.1
+
 @router.get("/remote-zones")
 def get_zonas(
     swLat: float, swLng: float, neLat: float, neLng: float, 
@@ -81,21 +95,39 @@ def get_zonas(
             status_code=400,
             detail="Very wide viewing area. Zoom in on the map to load risk zones."
         )
+    cell_lat = round_grid(swLat, 1)
+    cell_lng = round_grid(swLng, 1)
+
+    filename = f'zone_{int(cell_lat*100)}_{int(cell_lng*100)}.json'
+    url = f'{CLOUDFRONT_URL}/zones/{filename}'
+
+    try:
+        resp = requests.get(url, timeout=3)
+        if resp.status_code == 200:
+            if resp.json():
+                return resp.json()
+    except requests.RequestException:
+        pass 
+
+    bbox = f'SRID=4326;POLYGON(({cell_lng} {cell_lat}, {cell_lng+GRID_SIZE} {cell_lat}, {cell_lng+GRID_SIZE} {cell_lat+GRID_SIZE}, {cell_lng} {cell_lat+GRID_SIZE}, {cell_lng} {cell_lat}))'
+
     query = db.query(models.Occurrence).filter(
-        ST_Within(
-            models.Occurrence.local,  
-            bbox 
-        )
+        models.Occurrence.local.ST_Within(bbox)
     ).all()
 
-    occurrences_coords = [occurrence.coordinates for occurrence in query]
-    if occurrences_coords:
-        clustering = geoloc.ClusteringResult()
-        geojson = clustering.generate_geojson_cluster_polygons(
-            occurrences_coords, 
-            eps=1, 
-            min_samples=2
-        )
-        return geojson
-    else:
+    points = [occ.coordinates for occ in query]
+
+    if not points:
         return {"message": "Clean Zone"}
+
+    clustering = geoloc.ClusteringResult()
+    geojson = clustering.generate_geojson_cluster_polygons(points, eps=1, min_samples=2)
+
+    client_s3.put_object(
+        Bucket=BUCKET_NAME,
+        Key=f'zones/{filename}',
+        Body=json.dumps(geojson),
+        ContentType='application/json',
+        CacheControl='public, max-age=604800'
+    )
+    return geojson
