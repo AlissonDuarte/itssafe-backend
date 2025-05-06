@@ -123,7 +123,8 @@ def get_zonas(
     clustering = geoloc.ClusteringResult()
     geojson = clustering.generate_geojson_cluster_polygons(points, eps=1, min_samples=2)
 
-    client_s3.put_object(
+    bucket_s3 = client_s3.get_client()
+    bucket_s3.put_object(
         Bucket=BUCKET_NAME,
         Key=f'zones/{filename}',
         Body=json.dumps(geojson),
