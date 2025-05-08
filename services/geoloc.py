@@ -88,7 +88,7 @@ class ClusteringResult:
     def simplify_polygon(self, polygon, tolerance=0.01):
         return polygon.simplify(tolerance, preserve_topology=True)
 
-    def generate_geojson_cluster_polygons(self, points: List[List[float]], eps: float, min_samples: int):
+    def generate_geojson_cluster_polygons(self, points: List[List[float]], eps: float, min_samples: int, risk_level_filter: List[str] = []):
         labels = self.dbscan(points, eps, min_samples)
 
         clusters = {}
@@ -115,6 +115,9 @@ class ClusteringResult:
             else:
                 risk_level = "high"
 
+            if risk_level_filter and risk_level in risk_level_filter:
+                continue
+            
             if isinstance(convex_hull, Polygon):
                 simplified_polygon = self.simplify_polygon(convex_hull)
 
