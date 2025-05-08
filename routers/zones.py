@@ -17,7 +17,6 @@ from crud import crud_user
 from models import models
 
 
-
 router = APIRouter()
 
 def get_db():
@@ -35,7 +34,9 @@ def get_danger_zones(
         radius:float = Query(..., description="Radius zone"),
         occurrenceType: List[str] = Query(default=[]),
         shifts: List[str] = Query(default=[]),
-        riskLevel: List[str] = Query(default=[]),
+        riskLevel: List[str] 
+        
+        = Query(default=[]),
         db: Session = Depends(get_db),
         user_uuid: str = Depends(auth.verify_token)
     ):
@@ -48,8 +49,8 @@ def get_danger_zones(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User without token identifier")
 
     sc = geoloc.Scans(db).user_location(
-        base_location=[lat, lng], 
-        radius_meters=radius, 
+        base_location=[lat, lng],
+        radius_meters=radius,
         raw_occurrence_type=occurrenceType,
         raw_shifts=shifts,
     )
@@ -60,7 +61,6 @@ def get_danger_zones(
         riskLevel = [rsk.lower() for rsk in riskLevel]
         
     cluster = cr.generate_geojson_cluster_polygons(sc, eps = radius,min_samples=2, risk_level_filter=riskLevel)
-
     if sc:
         producer.send_message(
             {

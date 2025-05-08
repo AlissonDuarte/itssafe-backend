@@ -100,7 +100,6 @@ class ClusteringResult:
 
         geojson = []
         clusters_polygons = []
-
         for cluster_id, cluster_points in clusters.items():
             multipoint = MultiPoint(cluster_points)
             convex_hull = multipoint.convex_hull
@@ -116,8 +115,9 @@ class ClusteringResult:
                 risk_level = "high"
 
             if risk_level_filter and risk_level in risk_level_filter:
+                print("entrando aqui")
                 continue
-            
+            print("passando")
             if isinstance(convex_hull, Polygon):
                 simplified_polygon = self.simplify_polygon(convex_hull)
 
@@ -174,7 +174,6 @@ class ClusteringResult:
                         "occurrence_count": occurrence_count
                     }
                 })
-
         return geojson
 
 
@@ -186,7 +185,7 @@ class Scans():
     def user_location(self, base_location: list, radius_meters: float = 1000, raw_occurrence_type: list = [], raw_shifts: list = []):
         latitude, longitude = base_location
 
-        user_location = WKTElement(f'POINT({latitude} {longitude})', srid=4326)
+        user_location = WKTElement(f'POINT({longitude} {latitude})', srid=4326)
 
         query = self.db.query(models.Occurrence).filter(
             ST_DWithin(
