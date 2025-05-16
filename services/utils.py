@@ -1,3 +1,4 @@
+import secrets
 from services.singleton.log import logger
 from geoalchemy2.elements import WKTElement
 from datetime import datetime
@@ -88,6 +89,66 @@ def email_confirmation(dst:str, token:str, username:str) -> dict:
     logger.info("{} Email Verify Template mounted to user {} with email {}".format(TAG, username, dst))
     return data
 
+def reset_password_template(dst:str, reset_token:str) -> dict:
+    html_template = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Password Recovery</title>
+    </head>
+    <body style="margin:0;padding:0;background-color:#2e2e2e;font-family:Arial,sans-serif;color:#ffffff;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td align="center" style="padding: 40px 0;">
+                    <table width="600" style="background:#3a3a3a;border-radius:12px;padding:40px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+                        <tr>
+                            <td align="center" style="padding-bottom:24px;">
+                                <img src="https://www.itssafe.com.br/static/global-search2.png" alt="It'sSafe Logo" width="100" style="margin-bottom:16px;">
+                                <h2 style="color:#ffffff;margin:0;">Password Recovery</h2>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 30px;text-align:center;">
+                                <p style="color:#dddddd;margin-bottom:8px;">Grettings</p>
+                                <p style="color:#cccccc;">We received a request to reset your password. Click the button below to proceed.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center" style="padding:24px;">
+                                <a href="https://www.itssafe.com.br/reset-password?token={reset_token}" target="_blank"
+                                style="background-color:#07a01c;color:white;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">
+                                    Reset Password
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 30px;text-align:center;">
+                                <p style="font-size:14px;color:#bbbbbb;margin-top:16px;">
+                                    If you didn't request this, you can ignore this email. Your password will remain unchanged.
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0 30px;text-align:center;font-size:12px;color:#888888;">
+                                <p>This link will expire in 15 minutes for security reasons.</p>
+                                <p>© 2025 It'sSafe</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+
+    data = {
+        "dst":dst,
+        "subject":"Password Recovery",
+        "message":html_template
+    }
+    return data
 
 
 def determine_shift(datetime_str: str):
@@ -101,3 +162,7 @@ def determine_shift(datetime_str: str):
         return "Night"
     else:
         return "Down"
+    
+
+def generate_token():
+    return secrets.token_urlsafe(64)
