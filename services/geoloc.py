@@ -1,5 +1,5 @@
 import math
-from typing import List
+from typing import List, Optional
 from models import models
 
 from shapely.geometry import MultiPoint
@@ -114,10 +114,9 @@ class ClusteringResult:
             else:
                 risk_level = "high"
 
-            if risk_level_filter and risk_level in risk_level_filter:
-                print("entrando aqui")
+            if risk_level_filter and risk_level not in risk_level_filter:
                 continue
-            print("passando")
+
             if isinstance(convex_hull, Polygon):
                 simplified_polygon = self.simplify_polygon(convex_hull)
 
@@ -182,6 +181,26 @@ class Scans():
     def __init__(self, db:Session):
         self.db = db
 
+    def _apply_filters(
+        self,
+        query,
+        raw_occurrence_types: Optional[List[str]] = None,
+        raw_shifts: Optional[List[str]] = None
+    ):
+        if raw_occurrence_types:
+            valid_types = [ocr.value for ocr in models.Occurrence.OccurrenceType]
+            occurrence_types = [t for t in raw_occurrence_types if t in valid_types]
+            if occurrence_types:
+                query = query.filter(models.Occurrence.type.in_(occurrence_types))
+
+        if raw_shifts:
+            valid_shifts = [shf.value for shf in models.Occurrence.ShiftOptions]
+            shifts = [s for s in raw_shifts if s in valid_shifts]
+            if shifts:
+                query = query.filter(models.Occurrence.shift.in_(shifts))
+
+        return query
+    
     def user_location(self, base_location: list, radius_meters: float = 1000, raw_occurrence_type: list = [], raw_shifts: list = []):
         latitude, longitude = base_location
 
@@ -195,19 +214,13 @@ class Scans():
             )
         )
         
-        if raw_occurrence_type:
-            occurrence_options = [ocr.value for ocr in models.Occurrence.OccurrenceType]
-            occurrence_type = [occurrence for occurrence in raw_occurrence_type if occurrence in occurrence_options]
-            if occurrence_type:
-                query = query.filter(models.Occurrence.type.in_(occurrence_type))
+        query = self._apply_filters(query, raw_occurrence_type, raw_shifts)
+        return [item.coordinates for item in query.all()]
+    
+    def remote_scan(self, bbox:str, raw_occurrence_type:list = [], raw_shifts:list = []) -> list:
+        query = self.db.query(models.Occurrence).filter(
+            models.Occurrence.local.ST_Within(bbox)
+        ).all()
 
-        if raw_shifts:
-            shifts_options = [shf.value for shf in models.Occurrence.ShiftOptions]
-            shifts = [shift for shift in raw_shifts if shift in shifts_options]
-            if shifts:
-                query = query.filter(models.Occurrence.shift.in_(shifts))
-
-        results = query.all()
-        data = [item.coordinates for item in results]
-        return data
-        
+        query = self._apply_filters(query, raw_occurrence_type, raw_shifts)
+        return [item.coordinates for item in query.all()]

@@ -2,7 +2,6 @@ import requests
 import json
 import os
 
-from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from geoalchemy2.functions import ST_MakeEnvelope
@@ -14,7 +13,6 @@ from services import geoloc, auth
 from services.singleton.producer import producer
 from services.singleton.s3 import client_s3
 from crud import crud_user
-from models import models
 
 
 router = APIRouter()
@@ -84,9 +82,15 @@ GRID_SIZE = 0.1
 
 @router.get("/remote-zones")
 def get_zonas(
-    swLat: float, swLng: float, neLat: float, neLng: float, 
-    db: Session = Depends(get_db)
-):
+        swLat: float,
+        swLng: float,
+        neLat: float,
+        neLng: float,
+        shifts: List[str] = Query(default=[]),
+        occurrenceType: List[str] = Query(default=[]),
+        riskLevel: List[str] = Query(default=[]),
+        db: Session = Depends(get_db),
+    ):
     bbox = ST_MakeEnvelope(
         min(swLng, neLng),  
         min(swLat, neLat),
@@ -117,17 +121,14 @@ def get_zonas(
 
     bbox = f'SRID=4326;POLYGON(({cell_lng} {cell_lat}, {cell_lng+GRID_SIZE} {cell_lat}, {cell_lng+GRID_SIZE} {cell_lat+GRID_SIZE}, {cell_lng} {cell_lat+GRID_SIZE}, {cell_lng} {cell_lat}))'
 
-    query = db.query(models.Occurrence).filter(
-        models.Occurrence.local.ST_Within(bbox)
-    ).all()
-
-    points = [occ.coordinates for occ in query]
-
+    sc = geoloc.Scans(db)
+    points = sc.remote_scan(bbox=bbox, raw_occurrence_type=occurrenceType, raw_shifts=shifts)
+        
     if not points:
         return {"message": "Clean Zone"}
 
     clustering = geoloc.ClusteringResult()
-    geojson = clustering.generate_geojson_cluster_polygons(points, eps=1, min_samples=2)
+    geojson = clustering.generate_geojson_cluster_polygons(points, eps=1, min_samples=2, risk_level_filter=riskLevel)
 
     bucket_s3 = client_s3.get_client()
     bucket_s3.put_object(
