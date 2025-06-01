@@ -127,15 +127,21 @@ def get_zonas(
     if not points:
         return {"message": "Clean Zone"}
 
+    if riskLevel:
+        riskLevel = [rsk.lower() for rsk in riskLevel]
+
     clustering = geoloc.ClusteringResult()
     geojson = clustering.generate_geojson_cluster_polygons(points, eps=1, min_samples=2, risk_level_filter=riskLevel)
 
-    bucket_s3 = client_s3.get_client()
-    bucket_s3.put_object(
-        Bucket=BUCKET_NAME,
-        Key=f'zones/{filename}',
-        Body=json.dumps(geojson),
-        ContentType='application/json',
-        CacheControl='public, max-age=604800'
-    )
+    try:
+        bucket_s3 = client_s3.get_client()
+        bucket_s3.put_object(
+            Bucket=BUCKET_NAME,
+            Key=f'zones/{filename}',
+            Body=json.dumps(geojson),
+            ContentType='application/json',
+            CacheControl='public, max-age=604800'
+        )
+    except Exception as e:
+        print(e)
     return geojson

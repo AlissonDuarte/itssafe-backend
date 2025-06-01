@@ -114,6 +114,7 @@ class ClusteringResult:
             else:
                 risk_level = "high"
 
+            print(risk_level, risk_level_filter)
             if risk_level_filter and risk_level not in risk_level_filter:
                 continue
 
@@ -220,7 +221,7 @@ class Scans():
     def remote_scan(self, bbox:str, raw_occurrence_type:list = [], raw_shifts:list = []) -> list:
         query = self.db.query(models.Occurrence).filter(
             models.Occurrence.local.ST_Within(bbox)
-        ).all()
+        )
 
         query = self._apply_filters(query, raw_occurrence_type, raw_shifts)
         return [item.coordinates for item in query.all()]
