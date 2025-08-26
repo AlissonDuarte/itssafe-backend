@@ -37,6 +37,7 @@ def create_user(user: schemas.UserCreate, db: Session=Depends(get_db)):
         username=user.username
     )
     hostinger_email.send_email_interface(data=payload_email)
+    response = crud_user.get_user(db, response.uuid)
     return response
 
 
