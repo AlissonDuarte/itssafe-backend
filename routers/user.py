@@ -8,6 +8,7 @@ from models import models
 from services import security, auth, utils
 from database import SessionLocal
 from services.singleton.amazon import ses_email
+from services.singleton.hostinger import hostinger_email
 from services.utils import generate_token
 from services.redis.redis import save_token, get_token_data, delete_token
 from services.security import hash_password, validate_password
@@ -35,7 +36,7 @@ def create_user(user: schemas.UserCreate, db: Session=Depends(get_db)):
         token=auth.create_access_token({"email":user.email, "uuid":response.uuid}, timedelta(days=1)),
         username=user.username
     )
-    ses_email.send_email_interface(data=payload_email)
+    hostinger_email.send_email_interface(data=payload_email)
     return response
 
 
@@ -124,7 +125,7 @@ async def password_recovery(request: schemas.RecoveryPassword, db: Session=Depen
     payload=utils.reset_password_template(request.email, token)
 
     try:
-        ses_email.send_email_interface(data=payload)
+        hostinger_email.send_email_interface(data=payload)
     except Exception:
         raise HTTPException(status_code=404, detail="Error to send email, please try later")
     
