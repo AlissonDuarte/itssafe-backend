@@ -12,6 +12,8 @@ class UserBase(BaseModel):
     phone_identifier:str
     subscription_status:str="active"
 
+class UserFCM(BaseModel):
+    fcm_token:str
 
 class UserCreate(UserBase):
     password:str
@@ -117,3 +119,8 @@ class RabbitPayload(BaseModel):
     message:str
     registration_token:str
     mode:Literal['fcm', 'sns']
+
+
+class GenericResponse(BaseModel):
+    message:str
+    status: bool

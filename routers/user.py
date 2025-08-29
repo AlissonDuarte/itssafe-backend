@@ -48,7 +48,6 @@ def get_user(uuid: str=Depends(auth.verify_token), db: Session=Depends(get_db), 
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-
 @router.patch("/user", response_model=schemas.UserResponse)
 def update_user(user: schemas.UserUpdate, uuid: str=Depends(auth.verify_token), db: Session=Depends(get_db), _: str=Depends(auth.verify_token)):
     db_user=crud_user.get_user(db, uuid)
@@ -68,6 +67,17 @@ def delete_user(uuid: str=Depends(auth.verify_token), db: Session=Depends(get_db
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return crud_user.delete_user(db, uuid)
 
+
+@router.post("/user/update/fcm", response_model=schemas.GenericResponse)
+def update_user_fcm(payload:schemas.UserFCM, uuid: str=Depends(auth.verify_token), db: Session=Depends(get_db)):
+
+    db_user=crud_user.get_user(db, uuid)
+    if db_user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    response = crud_user.update_user_fcm(db, uuid, payload.fcm_token)
+    if response is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return schemas.GenericResponse(message="FCM token updated", status=True)
 
 @router.post("/users/login")
 def user_login(data: schemas.UserLoginRequest, db: Session=Depends(get_db), response_model=schemas.UserLoginResponse):

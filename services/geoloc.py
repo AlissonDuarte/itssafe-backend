@@ -121,15 +121,12 @@ class ClusteringResult:
             if isinstance(convex_hull, Polygon):
                 simplified_polygon = self.simplify_polygon(convex_hull)
 
-                # Verifica se há interseção com polígonos existentes
                 overlapping = [p for p in clusters_polygons if p.intersects(simplified_polygon)]
 
                 if overlapping:
-                    # Une os polígonos sobrepostos com o novo
                     overlapping.append(simplified_polygon)
                     merged = unary_union(overlapping)
 
-                    # Remove os antigos e adiciona o novo unificado
                     clusters_polygons = [p for p in clusters_polygons if not any(p.equals(o) for o in overlapping)]
                     clusters_polygons.append(merged)
 

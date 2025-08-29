@@ -22,29 +22,27 @@ class HostingerEmail:
         assert self.port, "❌ Environment variable HOSTINGER_EMAIL_PORT is not set."
         assert self.email, "❌ Environment variable HOSTINGER_EMAIL_ADDRESS is not set."
         assert self.password, "❌ Environment variable HOSTINGER_EMAIL_PASSWORD is not set."
-
-        self.mime = MIMEMultipart()
         logger.info("{} Class started with success".format(TAG))
 
-
     def _send_email(self, dst:str, subject:str, message:str):
-        self.mime['From'] = self.email
-        self.mime['To'] = dst
-        self.mime['Subject'] = subject
-        self.mime.attach(MIMEText(message, "html"))
+        mime = MIMEMultipart()
+        mime['From'] = self.email
+        mime['To'] = dst
+        mime['Subject'] = subject
+        mime.attach(MIMEText(message, "html"))
+
         with smtplib.SMTP_SSL(self.host, self.port) as server:
             try:
                 server.login(self.email, self.password)
-                logger.info("{} Successful login on Hostinger SMTP to {}".format(TAG, dst))
+                logger.info(f"{TAG} Successful login on Hostinger SMTP to {dst}")
             except Exception as e:
-                logger.info("{} Error in login proccess with Email {}".format(TAG, e))
+                logger.info(f"{TAG} Error in login process with Email {e}")
 
             try:
-                server.send_message(self.mime)
-                logger.info("{} Message sended with Hostinger SMTP to {}".format(TAG, dst))
+                server.send_message(mime)
+                logger.info(f"{TAG} Message sent with Hostinger SMTP to {dst}")
             except Exception as e:
-                logger.info("{} login with success but error to send a message {}".format(TAG, e))
-
+                logger.info(f"{TAG} login ok but error to send message {e}")
     def send_email_interface(self, data:dict):
         dst = data.get("dst")
         subject = data.get("subject")

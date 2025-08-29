@@ -83,6 +83,13 @@ def update_user(db: Session, uuid: str, user: schemas.UserUpdate):
     logger.info("{} Updated user by uuid {} data: {}".format(TAG, uuid, user))
     return db_user
 
+def update_user_fcm(db: Session, uuid: str, fcm_token: str):
+    db_user = db.query(models.User).filter(models.User.uuid == uuid).first()
+    db_user.phone_identifier = fcm_token
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
 def delete_user(db: Session, uuid: str):
     db_user = db.query(models.User).filter(models.User.uuid == uuid).first()
     db.delete(db_user)
