@@ -100,11 +100,7 @@ def create_exclusion_request(db: Session, exclusion_request: schemas.ExclusionRe
     db.add(db_exclusion_request)
     db.commit() 
     db.refresh(db_exclusion_request)
-    return schemas.ExclusionRequestResponse(
-        id=db_exclusion_request.id,
-        reason=db_exclusion_request.reason
-    )
-
+    return
 def delete_user(db: Session, uuid: str):
     db_user = db.query(models.User).filter(models.User.uuid == uuid).first()
     db.delete(db_user)
