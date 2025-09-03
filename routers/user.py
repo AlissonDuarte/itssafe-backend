@@ -161,3 +161,12 @@ async def reset_password(request: schemas.PasswordResetRequest, db: Session = De
     await delete_token(request.recovery_token)
 
     return {"message": "Password updated!"}
+
+
+@router.delete("/users/exlusion", response_model=schemas.GenericResponse)
+async def user_data_exclusion(payload: schemas.ExclusionRequestCreate, db: Session=Depends(get_db)):
+    user=crud_user.get_user_by_email(db, payload.email)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    crud_user.create_exclusion_request(db, schemas.ExclusionRequestCreate(email=user.email))
+    return schemas.GenericResponse(message="Exclusion request created", status=True)

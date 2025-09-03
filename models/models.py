@@ -78,3 +78,15 @@ class UserOccurrence(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class UserExclusionRequest(Base):
+    __tablename__ = "user_exclusion_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uuid = Column(UUID(as_uuid=True), default=uuid_pkg.uuid4, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    reason = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)

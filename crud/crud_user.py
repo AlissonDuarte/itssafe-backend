@@ -90,6 +90,21 @@ def update_user_fcm(db: Session, uuid: str, fcm_token: str):
     db.refresh(db_user)
     return db_user
 
+
+def create_exclusion_request(db: Session, exclusion_request: schemas.ExclusionRequestCreate):
+    db_user = db.query(models.User).filter(models.User.email == exclusion_request.email).first()
+    db_exclusion_request = models.ExclusionRequest(
+        user_id=db_user.id,
+        reason=exclusion_request.reason
+    )
+    db.add(db_exclusion_request)
+    db.commit() 
+    db.refresh(db_exclusion_request)
+    return schemas.ExclusionRequestResponse(
+        id=db_exclusion_request.id,
+        reason=db_exclusion_request.reason
+    )
+
 def delete_user(db: Session, uuid: str):
     db_user = db.query(models.User).filter(models.User.uuid == uuid).first()
     db.delete(db_user)

@@ -124,3 +124,8 @@ class RabbitPayload(BaseModel):
 class GenericResponse(BaseModel):
     message:str
     status: bool
+
+    
+class ExclusionRequestCreate(BaseModel):
+    email:int
+    reason:str
